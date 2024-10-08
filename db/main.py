@@ -8,12 +8,12 @@ from typing import Optional
 app = FastAPI()
 
 
-@app.get("/")
+@app.get("/api")
 def read_root():
     return {"message": "all ok"}
 
 
-@app.get("/restaurants")
+@app.get("/api/restaurants")
 def read_restaurants():
     conn = connect_to_db()
     restaurants_data = conn.run("""SELECT * FROM restaurants;""")
@@ -29,7 +29,7 @@ class NewRestaurant(BaseModel):
     cuisine: str
     website: str
 
-@app.post("/restaurants")
+@app.post("/api/restaurants")
 def add_new_restaurant(new_restaurant: NewRestaurant):
     conn = connect_to_db()
     insert_query = f"""
@@ -47,7 +47,7 @@ def add_new_restaurant(new_restaurant: NewRestaurant):
     return {"restaurant": formatted_restaurant_data}
 
 
-@app.delete("/restaurants/{restaurant_id}", status_code=204)
+@app.delete("/api/restaurants/{restaurant_id}", status_code=204)
 def delete_restaurant(restaurant_id: int):
     conn = connect_to_db()
     conn.run(f"""DELETE FROM restaurants WHERE restaurant_id = {literal(restaurant_id)};""")
@@ -57,7 +57,7 @@ def delete_restaurant(restaurant_id: int):
 class UpdatedAreaCode(BaseModel):
     area_id: Optional[int] = None
 
-@app.patch("/restaurants/{restaurant_id}")
+@app.patch("/api/restaurants/{restaurant_id}")
 def update_area_id(restaurant_id: int, updated_area_id: UpdatedAreaCode, response: Response):
     if not dict(updated_area_id)["area_id"]:
         response.status_code = 400
