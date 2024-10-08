@@ -1,7 +1,8 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from pg8000.native import literal
+from fastapi import FastAPI, Response
 from connection import connect_to_db, close_db_connection
+from pg8000.native import literal
+from pydantic import BaseModel
+from typing import Optional
 
 
 app = FastAPI()
@@ -51,3 +52,22 @@ def delete_restaurant(restaurant_id: int):
     conn = connect_to_db()
     conn.run(f"""DELETE FROM restaurants WHERE restaurant_id = {literal(restaurant_id)};""")
     close_db_connection(conn)
+
+
+class UpdatedAreaCode(BaseModel):
+    area_id: Optional[int] = None
+
+@app.patch("/restaurants/{restaurant_id}")
+def update_area_id(restaurant_id: int, updated_area_id: UpdatedAreaCode, response: Response):
+    if not dict(updated_area_id)["area_id"]:
+        response.status_code = 400
+        return {"message": "empty request body"}
+
+    conn = connect_to_db()
+    conn.run(f"""UPDATE restaurants SET area_id = {literal(updated_area_id.area_id)} WHERE restaurant_id = {literal(restaurant_id)};""")
+    restaurant_data = conn.run(f"""SELECT * FROM restaurants WHERE restaurant_id = {literal(restaurant_id)}""")[0]
+    column_names = [c["name"] for c in conn.columns]
+    formatted_restaurant_data = dict(zip(column_names, restaurant_data))
+    close_db_connection(conn)
+    return {"restaurant": formatted_restaurant_data}
+
