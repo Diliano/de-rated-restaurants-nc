@@ -13,6 +13,22 @@ def read_root():
     return {"message": "all ok"}
 
 
+@app.get("/api/areas/{area_id}/restaurants")
+def read_area_restaurants(area_id: int):
+    conn = connect_to_db()
+    area_data = conn.run(f"""SELECT * FROM areas WHERE area_id = {literal(area_id)};""")[0]
+    area_column_names = [c["name"] for c in conn.columns]
+    restaurants_data = conn.run(f"""
+        SELECT COUNT(restaurant_name) as total_restaurants, ARRAY_AGG(restaurant_name) as restaurants 
+        FROM restaurants WHERE area_id = {literal(area_id)};"""
+    )[0]
+    combined_data = area_data + restaurants_data
+    combined_column_names = area_column_names + [c["name"] for c in conn.columns]
+    formatted_data = dict(zip(combined_column_names, combined_data))
+    close_db_connection(conn)
+    return {"area": formatted_data}
+
+
 @app.get("/api/restaurants")
 def read_restaurants():
     conn = connect_to_db()
