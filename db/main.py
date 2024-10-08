@@ -29,7 +29,7 @@ class NewRestaurant(BaseModel):
     cuisine: str
     website: str
 
-@app.post("/api/restaurants")
+@app.post("/api/restaurants", status_code=201)
 def add_new_restaurant(new_restaurant: NewRestaurant):
     conn = connect_to_db()
     insert_query = f"""
@@ -37,10 +37,9 @@ def add_new_restaurant(new_restaurant: NewRestaurant):
             (restaurant_name, area_id, cuisine, website)
         VALUES
             ({literal(new_restaurant.restaurant_name)}, {literal(new_restaurant.area_id)}, {literal(new_restaurant.cuisine)}, {literal(new_restaurant.website)})
-        RETURNING restaurant_id;
+        RETURNING *;
     """
-    restaurant_id = conn.run(sql=insert_query)[0][0]
-    restaurant_data = conn.run(f"""SELECT * FROM restaurants WHERE restaurant_id = {literal(restaurant_id)}""")[0]
+    restaurant_data = conn.run(sql=insert_query)[0]
     column_names = [c["name"] for c in conn.columns]
     formatted_restaurant_data = dict(zip(column_names, restaurant_data))
     close_db_connection(conn)
