@@ -44,3 +44,10 @@ def add_new_restaurant(new_restaurant: NewRestaurant):
     formatted_restaurant_data = dict(zip(column_names, restaurant_data))
     close_db_connection(conn)
     return {"restaurant": formatted_restaurant_data}
+
+
+@app.delete("/restaurants/{restaurant_id}", status_code=204)
+def delete_restaurant(restaurant_id: int):
+    conn = connect_to_db()
+    conn.run(f"""DELETE FROM restaurants WHERE restaurant_id = {literal(restaurant_id)};""")
+    close_db_connection(conn)
