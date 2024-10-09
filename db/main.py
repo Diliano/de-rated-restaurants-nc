@@ -131,24 +131,37 @@ def delete_restaurant(restaurant_id: int):
             close_db_connection(conn)
 
 
+"""
+Error handling considerations for PATCH "/api/restaurants/:restaurant_id":
+- path is incorrect; 404 default handled by FastAPI
+- method does not exist; 405 default handled by FastAPI (except DELETE as this is a valid endpoint)
+- parameter is wrong type; 422 default handled by FastAPI
+- parameter does not exist; custom 404 implemented
+- server error; custom 500 implemented
+"""
 class UpdatedAreaCode(BaseModel):
     area_id: Optional[int] = None
 
 @app.patch("/api/restaurants/{restaurant_id}")
-def update_area_id(restaurant_id: int, updated_area_id: UpdatedAreaCode, response: Response):
+def update_area_id(restaurant_id: int, updated_area_id: UpdatedAreaCode):
     if not dict(updated_area_id)["area_id"]:
-        response.status_code = 400
-        return {"message": "empty request body"}
-
-    conn = connect_to_db()
-    restaurant_data = conn.run(f"""UPDATE restaurants SET area_id = {literal(updated_area_id.area_id)} WHERE restaurant_id = {literal(restaurant_id)} RETURNING *;""")[0]
-    column_names = [c["name"] for c in conn.columns]
-    formatted_restaurant_data = dict(zip(column_names, restaurant_data))
-    close_db_connection(conn)
-    return {"restaurant": formatted_restaurant_data}
+        raise HTTPException(status_code=400, detail="received empty request body; body must contain correct fields")
+    
+    conn = None
+    try: 
+        conn = connect_to_db()
+        restaurant_data = conn.run(f"""UPDATE restaurants SET area_id = {literal(updated_area_id.area_id)} WHERE restaurant_id = {literal(restaurant_id)} RETURNING *;""")[0]
+        column_names = [c["name"] for c in conn.columns]
+        formatted_restaurant_data = dict(zip(column_names, restaurant_data))
+        return {"restaurant": formatted_restaurant_data}
+    except IndexError:
+        raise HTTPException(status_code=404, detail=f"no match for restaurant with ID {restaurant_id}")
+    finally:
+        if conn:
+            close_db_connection(conn)
 
 
 @app.exception_handler(DatabaseError)
 def handle_db_error(request: Request, exc: DatabaseError):
     print(exc)
-    raise HTTPException(status_code=500, detail="Server error: issue logged for investigation")
+    raise HTTPException(status_code=500, detail="server error: issue logged for investigation")
