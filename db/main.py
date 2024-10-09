@@ -32,7 +32,13 @@ def read_area_restaurants(area_id: int):
 @app.get("/api/restaurants")
 def read_restaurants():
     conn = connect_to_db()
-    restaurants_data = conn.run("""SELECT * FROM restaurants;""")
+    restaurants_data = conn.run("""
+        SELECT restaurants.*, ROUND(AVG(rating), 1) as average_rating
+        FROM restaurants
+        JOIN ratings ON restaurants.restaurant_id = ratings.restaurant_id
+        GROUP BY restaurants.restaurant_id
+        ORDER BY restaurants.restaurant_id;
+    """)
     column_names = [c["name"] for c in conn.columns]
     formatted_restaurants_data = [dict(zip(column_names, restaurant)) for restaurant in restaurants_data]
     close_db_connection(conn)
