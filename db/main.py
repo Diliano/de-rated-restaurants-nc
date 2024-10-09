@@ -85,8 +85,7 @@ def update_area_id(restaurant_id: int, updated_area_id: UpdatedAreaCode, respons
         return {"message": "empty request body"}
 
     conn = connect_to_db()
-    conn.run(f"""UPDATE restaurants SET area_id = {literal(updated_area_id.area_id)} WHERE restaurant_id = {literal(restaurant_id)};""")
-    restaurant_data = conn.run(f"""SELECT * FROM restaurants WHERE restaurant_id = {literal(restaurant_id)}""")[0]
+    restaurant_data = conn.run(f"""UPDATE restaurants SET area_id = {literal(updated_area_id.area_id)} WHERE restaurant_id = {literal(restaurant_id)} RETURNING *;""")[0]
     column_names = [c["name"] for c in conn.columns]
     formatted_restaurant_data = dict(zip(column_names, restaurant_data))
     close_db_connection(conn)
