@@ -1,6 +1,6 @@
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Response, Request, HTTPException
 from connection import connect_to_db, close_db_connection
-from pg8000.native import literal
+from pg8000.native import literal, DatabaseError
 from pydantic import BaseModel
 from typing import Optional
 
@@ -18,21 +18,35 @@ def read_root():
     return {"message": "all ok"}
 
 
+"""
+Error handling considerations for GET "/api/areas/:area_id/restaurants":
+- path is incorrect; 404 default handled by FastAPI
+- method does not exist; 405 default handled by FastAPI
+- parameter is wrong type; 422 default handled by FastAPI
+- parameter does not exist; custom 404 implemented
+- server error; custom 500 implemented
+"""
 @app.get("/api/areas/{area_id}/restaurants")
 def read_area_restaurants(area_id: int):
-    conn = connect_to_db()
-    select_query = f"""
-        SELECT areas.*, COUNT(restaurant_name) as total_restaurants, ARRAY_AGG(restaurant_name) as restaurants
-        FROM areas
-        JOIN restaurants ON areas.area_id = restaurants.area_id
-        WHERE areas.area_id = {literal(area_id)}
-        GROUP BY areas.area_id;
-    """
-    area_restaurants_data = conn.run(sql=select_query)[0]
-    column_names = [c["name"] for c in conn.columns]
-    formatted_data = dict(zip(column_names, area_restaurants_data))
-    close_db_connection(conn)
-    return {"area": formatted_data}
+    conn = None
+    try:
+        conn = connect_to_db()
+        select_query = f"""
+            SELECT areas.*, COUNT(restaurant_name) as total_restaurants, ARRAY_AGG(restaurant_name) as restaurants
+            FROM areas
+            JOIN restaurants ON areas.area_id = restaurants.area_id
+            WHERE areas.area_id = {literal(area_id)}
+            GROUP BY areas.area_id;
+        """
+        area_restaurants_data = conn.run(sql=select_query)[0]
+        column_names = [c["name"] for c in conn.columns]
+        formatted_data = dict(zip(column_names, area_restaurants_data))
+        return {"area": formatted_data}
+    except IndexError:
+        raise HTTPException(status_code=404, detail=f"no match for area with ID {area_id}")
+    finally:
+        if conn:
+            close_db_connection(conn)
 
 
 @app.get("/api/restaurants")
@@ -97,3 +111,8 @@ def update_area_id(restaurant_id: int, updated_area_id: UpdatedAreaCode, respons
     close_db_connection(conn)
     return {"restaurant": formatted_restaurant_data}
 
+
+@app.exception_handler(DatabaseError)
+def handle_db_error(request: Request, exc: DatabaseError):
+    print(exc)
+    raise HTTPException(status_code=500, detail="Server error: issue logged for investigation")
