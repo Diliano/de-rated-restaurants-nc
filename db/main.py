@@ -57,20 +57,32 @@ Error handling considerations for GET "/api/restaurants":
 """
 @app.get("/api/restaurants")
 def read_restaurants():
-    conn = connect_to_db()
-    restaurants_data = conn.run("""
-        SELECT restaurants.*, ROUND(AVG(rating), 1) as average_rating
-        FROM restaurants
-        JOIN ratings ON restaurants.restaurant_id = ratings.restaurant_id
-        GROUP BY restaurants.restaurant_id
-        ORDER BY restaurants.restaurant_id;
-    """)
-    column_names = [c["name"] for c in conn.columns]
-    formatted_restaurants_data = [dict(zip(column_names, restaurant)) for restaurant in restaurants_data]
-    close_db_connection(conn)
-    return {"restaurants": formatted_restaurants_data}
+    conn = None
+    try:
+        conn = connect_to_db()
+        restaurants_data = conn.run("""
+            SELECT restaurants.*, ROUND(AVG(rating), 1) as average_rating
+            FROM restaurants
+            JOIN ratings ON restaurants.restaurant_id = ratings.restaurant_id
+            GROUP BY restaurants.restaurant_id
+            ORDER BY restaurants.restaurant_id;
+        """)
+        column_names = [c["name"] for c in conn.columns]
+        formatted_restaurants_data = [dict(zip(column_names, restaurant)) for restaurant in restaurants_data]
+        return {"restaurants": formatted_restaurants_data}
+    finally:
+        if conn:
+            close_db_connection(conn)
 
 
+"""
+Error handling considerations for POST "/api/restaurants":
+- path is incorrect; 404 default handled by FastAPI
+- method does not exist; 405 default handled by FastAPI (except GET as this is a valid endpoint)
+- parameter is wrong type; 422 default handled by FastAPI
+- parameter does not exist (empty); 422 default handled by FastAPI
+- server error; custom 500 implemented
+"""
 class NewRestaurant(BaseModel):
     restaurant_name: str
     area_id: int
@@ -79,19 +91,23 @@ class NewRestaurant(BaseModel):
 
 @app.post("/api/restaurants", status_code=201)
 def add_new_restaurant(new_restaurant: NewRestaurant):
-    conn = connect_to_db()
-    insert_query = f"""
-        INSERT INTO restaurants
-            (restaurant_name, area_id, cuisine, website)
-        VALUES
-            ({literal(new_restaurant.restaurant_name)}, {literal(new_restaurant.area_id)}, {literal(new_restaurant.cuisine)}, {literal(new_restaurant.website)})
-        RETURNING *;
-    """
-    restaurant_data = conn.run(sql=insert_query)[0]
-    column_names = [c["name"] for c in conn.columns]
-    formatted_restaurant_data = dict(zip(column_names, restaurant_data))
-    close_db_connection(conn)
-    return {"restaurant": formatted_restaurant_data}
+    conn = None
+    try:
+        conn = connect_to_db()
+        insert_query = f"""
+            INSERT INTO restaurants
+                (restaurant_name, area_id, cuisine, website)
+            VALUES
+                ({literal(new_restaurant.restaurant_name)}, {literal(new_restaurant.area_id)}, {literal(new_restaurant.cuisine)}, {literal(new_restaurant.website)})
+            RETURNING *;
+        """
+        restaurant_data = conn.run(sql=insert_query)[0]
+        column_names = [c["name"] for c in conn.columns]
+        formatted_restaurant_data = dict(zip(column_names, restaurant_data))
+        return {"restaurant": formatted_restaurant_data}
+    finally:
+        if conn:
+            close_db_connection(conn)
 
 
 @app.delete("/api/restaurants/{restaurant_id}", status_code=204)
