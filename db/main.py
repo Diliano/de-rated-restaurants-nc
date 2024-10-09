@@ -49,6 +49,12 @@ def read_area_restaurants(area_id: int):
             close_db_connection(conn)
 
 
+"""
+Error handling considerations for GET "/api/restaurants":
+- path is incorrect; 404 default handled by FastAPI
+- method does not exist; 405 default handled by FastAPI, 422 for POST requests as this is a valid endpoint
+- server error; custom 500 implemented
+"""
 @app.get("/api/restaurants")
 def read_restaurants():
     conn = connect_to_db()
