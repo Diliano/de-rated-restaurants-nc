@@ -16,15 +16,16 @@ def read_root():
 @app.get("/api/areas/{area_id}/restaurants")
 def read_area_restaurants(area_id: int):
     conn = connect_to_db()
-    area_data = conn.run(f"""SELECT * FROM areas WHERE area_id = {literal(area_id)};""")[0]
-    area_column_names = [c["name"] for c in conn.columns]
-    restaurants_data = conn.run(f"""
-        SELECT COUNT(restaurant_name) as total_restaurants, ARRAY_AGG(restaurant_name) as restaurants 
-        FROM restaurants WHERE area_id = {literal(area_id)};"""
-    )[0]
-    combined_data = area_data + restaurants_data
-    combined_column_names = area_column_names + [c["name"] for c in conn.columns]
-    formatted_data = dict(zip(combined_column_names, combined_data))
+    select_query = f"""
+        SELECT areas.*, COUNT(restaurant_name) as total_restaurants, ARRAY_AGG(restaurant_name) as restaurants
+        FROM areas
+        JOIN restaurants ON areas.area_id = restaurants.area_id
+        WHERE areas.area_id = {literal(area_id)}
+        GROUP BY areas.area_id;
+    """
+    area_restaurants_data = conn.run(sql=select_query)[0]
+    column_names = [c["name"] for c in conn.columns]
+    formatted_data = dict(zip(column_names, area_restaurants_data))
     close_db_connection(conn)
     return {"area": formatted_data}
 
