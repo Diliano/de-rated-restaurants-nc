@@ -80,7 +80,7 @@ Error handling considerations for POST "/api/restaurants":
 - path is incorrect; 404 default handled by FastAPI
 - method does not exist; 405 default handled by FastAPI (except GET as this is a valid endpoint)
 - parameter is wrong type; 422 default handled by FastAPI
-- parameter does not exist (empty); 422 default handled by FastAPI
+- valid, but empty input; 422 default handled by FastAPI
 - server error; custom 500 implemented
 """
 class NewRestaurant(BaseModel):
@@ -110,11 +110,25 @@ def add_new_restaurant(new_restaurant: NewRestaurant):
             close_db_connection(conn)
 
 
+"""
+Error handling considerations for DELETE "/api/restaurants/:restaurant_id":
+- path is incorrect; 404 default handled by FastAPI
+- method does not exist; 405 default handled by FastAPI, 422 for PATCH as this is a valid endpoint
+- parameter is wrong type; 422 default handled by FastAPI
+- parameter does not exist; custom 404 implemented
+- server error; custom 500 implemented
+"""
 @app.delete("/api/restaurants/{restaurant_id}", status_code=204)
 def delete_restaurant(restaurant_id: int):
-    conn = connect_to_db()
-    conn.run(f"""DELETE FROM restaurants WHERE restaurant_id = {literal(restaurant_id)};""")
-    close_db_connection(conn)
+    conn = None
+    try:
+        conn = connect_to_db()
+        returning_content = conn.run(f"""DELETE FROM restaurants WHERE restaurant_id = {literal(restaurant_id)} RETURNING *;""")
+        if not returning_content:
+            raise HTTPException(status_code=404, detail=f"no match for restaurant with ID {restaurant_id}")
+    finally:
+        if conn:
+            close_db_connection(conn)
 
 
 class UpdatedAreaCode(BaseModel):
