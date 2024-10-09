@@ -8,6 +8,11 @@ from typing import Optional
 app = FastAPI()
 
 
+"""
+Error handling considerations for GET "/api":
+- path is incorrect; 404 default handled by FastAPI
+- method does not exist; 405 default handled by FastAPI
+"""
 @app.get("/api")
 def read_root():
     return {"message": "all ok"}
